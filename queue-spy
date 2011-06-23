@@ -1,0 +1,63 @@
+#!/usr/bin/env ./node_modules/coffee-script/bin/coffee
+
+sys      = require 'sys'
+amqp     = require 'amqp'
+optparse = require 'optparse'
+
+# default configuration options
+
+config =
+	host:   'localhost'
+	indent: 2
+
+# parse arguments
+
+switches = [
+	[ '-h', '--host <address>',  'The hostname to connect to' ],
+	[ '-x', '--exchange <name>', 'The exchange(s) to listen to' ],
+	[ '-i', '--indent <#>',      'The number of spaces to indent when formatting JSON' ]
+]
+
+parser = new optparse.OptionParser switches
+
+parser.on 'host', (op, value) ->
+	config.host = value
+	
+parser.on 'exchange', (op, value) ->
+	config.exchanges = [] unless config.exchanges?
+	config.exchanges.push(value)
+
+parser.on 'indent', (op, value) ->
+	config.indent = value
+
+parser.parse process.argv
+
+if not config.exchanges?
+	sys.puts 'tell me what to do i am not good with computers'
+	process.exit 1
+
+# connect and do some shit
+
+connection = amqp.createConnection
+	host: config.host
+
+connection.addListener 'ready', ->
+	
+	connection.queue "queue-spy-#{process.pid}",
+		durable: false,
+		autoDelete: true,
+		(queue) =>
+			
+			queue.on 'open', (queue, messages, consumers) ->
+				sys.puts 'connected to queue server'
+				
+			queue.subscribe (message, headers, deliveryInfo) ->
+				sys.puts JSON.stringify(message, null, config.indent)
+			
+			for exchange in config.exchanges
+				connection.exchange exchange,
+					type: 'fanout',
+					durable: true,
+					(ex) ->
+						sys.puts "queue bound to #{exchange}"
+						queue.bind ex, '#'

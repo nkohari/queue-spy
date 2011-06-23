@@ -1,0 +1,6 @@
+{
+	"name": "queue-spy",
+	"version": "0.0.1",
+	"description": "Reads messages from AMQP queue and writes them to console",
+	"main": "./lib/main.coffee"
+}
